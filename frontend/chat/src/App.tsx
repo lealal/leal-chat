@@ -72,7 +72,7 @@ function App() {
 
   return (
     <div className="container">
-      <h2>Chat with me!</h2>
+      <h2>Ask me questions about Adrian!</h2>
       <p>Note: The agent might make mistakes</p>
       <MinChatUiProvider theme="#74b1e0ff">
         <MainContainer style={{ height: '80vh' }}>
