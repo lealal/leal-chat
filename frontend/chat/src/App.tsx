@@ -9,7 +9,7 @@ import {
 import { useState } from "react";
 
 function App() {
-  const API_URL = import.meta.env.BASE_URL
+  const API_URL = import.meta.env.VITE_API_URL
 
   const [messages, setMessages] = useState([
     {
@@ -23,8 +23,6 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
 
   const onSendMessage = (message: string) => {
-    console.log('message', message)
-
     const newMessage = {
       text: message,
       user: { id: 'user', name: 'You' },
@@ -40,25 +38,38 @@ function App() {
   const getMessage = async (newMessage: string) => {
     setIsLoading(true)
 
-    const result = await fetch(`${API_URL}/api/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ message: newMessage })
-    })
+    try {
 
-    if (result.ok) {
-      const data = await result.json()
-      const newMessage = {
-        text: data.response,
-        user: { id: 'agent', name: 'AL - Agent' },
-        createdAt: new Date(),
-        direction: 'incoming'
-      }
-      setMessages(prev => [...prev, newMessage])
-    } else {
+      const result = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: newMessage })
+      })
+
+      if (result.ok) {
+        const data = await result.json()
+        const cleanedResponse = cleanAgentResponse(data.response)
         const newMessage = {
+          text: cleanedResponse,
+          user: { id: 'agent', name: 'AL - Agent' },
+          createdAt: new Date(),
+          direction: 'incoming'
+        }
+        setMessages(prev => [...prev, newMessage])
+      } else {
+          const newMessage = {
+          text: 'Sorry, something went wrong. Please, try again.',
+          user: { id: 'agent', name: 'AL - Agent' },
+          createdAt: new Date(),
+          direction: 'incoming'
+        }
+        setMessages(prev => [...prev, newMessage])
+      }
+    } catch (error) {
+      console.error('Error fetching message:', error)
+      const newMessage = {
         text: 'Sorry, something went wrong. Please, try again.',
         user: { id: 'agent', name: 'AL - Agent' },
         createdAt: new Date(),
@@ -68,6 +79,10 @@ function App() {
     }
 
     setIsLoading(false)
+  }
+
+  const cleanAgentResponse = (text: string): string => {
+    return text.replace(/【[^】]*】/g, "").trim();
   }
 
   return (
