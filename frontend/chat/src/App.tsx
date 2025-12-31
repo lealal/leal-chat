@@ -8,9 +8,9 @@ import {
 } from "@minchat/react-chat-ui";
 import { useState } from "react";
 
-function App() {
-  const API_URL = import.meta.env.VITE_API_URL
+const API_URL = 'https://alchat-bpfkfyg2bkb3cbbs.westus3-01.azurewebsites.net/api/chat';
 
+function App() {
   const [messages, setMessages] = useState([
     {
       text: "Hello, what would you like to ask?",
