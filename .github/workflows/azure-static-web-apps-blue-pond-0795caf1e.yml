@@ -35,21 +35,20 @@ jobs:
                return await coredemo.getIDToken()
            result-encoding: string
 
-      - name: Install Node.js dependencies
-        working-directory: ./frontend/chat
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
       - name: Install frontend dependencies
-        working-directory: ./frontend/chat
         run: npm ci
+        working-directory: ./frontend/chat
 
       - name: Build frontend
+        run: npm run build
         working-directory: ./frontend/chat
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
-        run: npm run build
 
       - name: Build And Deploy
         id: builddeploy
