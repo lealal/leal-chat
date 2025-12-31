@@ -41,12 +41,11 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Get Id Token
-        uses: actions/github-script@v6
         id: idtoken
+        uses: actions/github-script@v6
         with:
           script: |
-            const coredemo = require('@actions/core');
-            return await coredemo.getIDToken();
+            return await github.actions.getIDToken();
           result-encoding: string
 
       - name: Deploy to Azure Static Web App
