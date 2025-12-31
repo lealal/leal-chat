@@ -20,10 +20,6 @@ jobs:
         with:
           python-version: '3.11'
       
-      - name: Check backend folder
-        run: |
-          ls -l ./backend
-
       - name: Install backend dependencies
         working-directory: ./backend
         run: |
