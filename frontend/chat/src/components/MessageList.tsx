@@ -25,7 +25,7 @@ export const MessageList = memo(function MessageList({ messages, isWaiting }: Me
     >
       <div className={styles.spacer} />
       {messages.map((message) => (
-        <Message key={message.id} message={message} />
+        message.isStreaming && !message.text ? null : <Message key={message.id} message={message} />
       ))}
       {isWaiting && <TypingIndicator />}
       <div className={styles.spacer} />

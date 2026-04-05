@@ -49,7 +49,7 @@ export const Message = memo(function Message({ message }: MessageProps) {
             >
               {message.text}
             </ReactMarkdown>
-            {message.isStreaming && <span className={styles.cursor} aria-hidden="true">▌</span>}
+            {message.isStreaming && message.text && <span className={styles.cursor} aria-hidden="true">▌</span>}
           </div>
         ) : (
           <p className={styles.userText}>{message.text}</p>
