@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import type { Message } from '../types';
 
-const API_URL = '/api/chat/stream';
+const API_URL = 'https://alchat-bpfkfyg2bkb3cbbs.westus3-01.azurewebsites.net/api/chat/stream';
 
 const WELCOME_MESSAGE: Message = {
   id: 'welcome',
