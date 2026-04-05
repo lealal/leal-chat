@@ -1,9 +1,16 @@
-from fastapi import FastAPI, HTTPException
+import json
+import os
+import queue
+import threading
+from functools import lru_cache
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
-from azure.ai.agents.models import ListSortOrder
+from azure.ai.agents.models import AgentEventHandler, MessageDeltaChunk
 from pydantic import BaseModel
+from typing import Optional
 
 app = FastAPI()
 
@@ -15,41 +22,82 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-project = AIProjectClient(
-    credential=DefaultAzureCredential(),
-    endpoint="https://adria-mfiw8rtv-eastus2.services.ai.azure.com/api/projects/adria-mfiw8rtv-eastus2_project")
+AGENT_ID = os.environ["AGENT_ID"]
+PROJECT_ENDPOINT = os.environ["PROJECT_ENDPOINT"]
 
-agent = project.agents.get_agent("asst_PhhPN0caCAE0Q10MSGlwyUSm")
-
-thread = project.agents.threads.create()
+@lru_cache(maxsize=1)
+def get_project() -> AIProjectClient:
+    return AIProjectClient(
+        credential=DefaultAzureCredential(),
+        endpoint=PROJECT_ENDPOINT,
+    )
 
 class MessageRequest(BaseModel):
     message: str
+    thread_id: Optional[str] = None
 
 @app.get("/api/health")
 def health_check():
     return { "status": "ok" }
 
-@app.post("/api/chat")
-def send_message(request: MessageRequest):
-    project.agents.messages.create(
-        thread_id=thread.id,
-        role="user",
-        content=request.message
+@app.post("/api/chat/stream")
+def stream_chat(request: MessageRequest):
+    project = get_project()
+    thread_id = request.thread_id
+    if not thread_id:
+        thread = project.agents.threads.create()
+        thread_id = thread.id
+
+    token_queue: queue.Queue = queue.Queue()
+
+    class StreamingHandler(AgentEventHandler):
+        def on_message_delta(self, delta: MessageDeltaChunk):
+            text = delta.text
+            if text:
+                token_queue.put(("token", text))
+
+        def on_done(self):
+            token_queue.put(("done", None))
+
+        def on_error(self, data):
+            token_queue.put(("error", str(data)))
+
+    def run_agent():
+        try:
+            project.agents.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=request.message
+            )
+            with project.agents.runs.stream(
+                thread_id=thread_id,
+                agent_id=AGENT_ID,
+                event_handler=StreamingHandler()
+            ) as handler:
+                handler.until_done()
+        except Exception as e:
+            token_queue.put(("error", str(e)))
+
+    threading.Thread(target=run_agent, daemon=True).start()
+
+    def generate():
+        yield f"data: {json.dumps({'thread_id': thread_id})}\n\n"
+        while True:
+            kind, value = token_queue.get()
+            if kind == "done":
+                yield "data: [DONE]\n\n"
+                break
+            elif kind == "error":
+                yield f"data: {json.dumps({'error': value})}\n\n"
+                break
+            else:
+                yield f"data: {json.dumps({'token': value})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
     )
-
-    run = project.agents.runs.create_and_process(
-        thread_id=thread.id,
-        agent_id=agent.id)
-
-    if run.status == "failed":
-        print(f"Run failed: {run.last_error}")
-        raise HTTPException(status_code=500, detail="Agent run failed")
-    else:
-        messages = list(project.agents.messages.list(thread_id=thread.id, order=ListSortOrder.ASCENDING))
-
-        for message in messages:
-            if message.text_messages:
-                print(f"{message.role}: {message.text_messages[-1].text.value}")
-        
-        return { "response": messages[-1].text_messages[-1].text.value }
